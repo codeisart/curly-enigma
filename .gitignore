@@ -30,3 +30,11 @@
 *.exe
 *.out
 *.app
+
+.vs/
+.vscode/
+Debug/
+Release/
+__vm/
+curly-enigma.vcxproj.filters
+curly-enigma.vcxproj.user

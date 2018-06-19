@@ -10,6 +10,7 @@
 #include "radio.h"
 #include "input.h"
 #include "settings.h"
+#include "leds.h"
 
 /********************** Setup *********************/
 void setup(){
@@ -43,30 +44,15 @@ void setup(){
   }    
   
   radio.setPALevel(RF24_PA_LOW);
-  //radio.setPayloadSize(1);                // Here we are sending 1-byte payloads to test the call-response speed
-
+ 
   radio.enableAckPayload();                         // We will be using the Ack Payload feature, so please enable it
   radio.enableDynamicPayloads();                    // Ack payloads are dynamic payloads  
-  //radio.openWritingPipe(address[0]);             // communicate back and forth.  One listens on it, the other talks to it.
-  //radio.openReadingPipe(1,address[0]); 
-  //radio.startListening();
-
-/*
-                                                    // Open pipes to other node for communication
-  if ( role == role_sender ) {                      // This simple sketch opens a pipe on a single address for these two nodes to 
-     radio.openWritingPipe(address[0]);             // communicate back and forth.  One listens on it, the other talks to it.
-     radio.openReadingPipe(1,address[1]); 
-  }else{
-    radio.openWritingPipe(address[1]);
-    radio.openReadingPipe(1,address[0]);
-    radio.startListening();
-    radio.writeAckPayload( 1, &message_count, sizeof(message_count) );  // Add an ack packet for the next time around.  This is a simple
-    ++message_count;        
-  }
-*/
-
+ 
   delay(50);
-  attachInterrupt(0, check_radio, LOW);             // Attach interrupt handler to interrupt #0 (using pin 2) on BOTH the sender and receiver
+  attachInterrupt(0, check_radio, FALLING);          // Attach interrupt handler to interrupt #0 (using pin 2) on BOTH the sender and receiver
+
+  // Setup fast led.
+  setupLeds();
 }
 
 
@@ -76,6 +62,7 @@ void setup(){
 void loop() 
 {   
    handleInput();
+   doLeds();				// Delays in here.
    
    switch(gSettings.role)
    {

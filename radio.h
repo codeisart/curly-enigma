@@ -45,8 +45,8 @@ void doSender()
   //radio.startWrite( &ping, sizeof(ping),0 );
 
   unsigned long time = millis();                   // Take the time, and send it.
-  Serial.print(F("Now sending "));
-  Serial.println(time);
+  LOG(F("Now sending "));
+  LOGLN(time);
   radio.startWrite( &time, sizeof(unsigned long) ,0);
   delay(2000);                                     // Try again soon
 }
@@ -59,11 +59,11 @@ void setupSender()
   
   LOG("Writing");
   LOG((char*)address[0]);
-  radio.openWritingPipe(address[0]);
+  radio.openWritingPipe(address[0]);		// writing to broadcast address.
   
-  for( int i = 0; i < ARRAY_SIZE(address); ++i )
+  for( int i = 1; i < ARRAY_SIZE(address); ++i )
   {
-    radio.openReadingPipe(1+i,address[i]);            // open reading pipes to all suits.
+    radio.openReadingPipe(1,address[i]);            // open reading pipes to all suits.
     LOG("\tReading ");  
     LOG(i);  
     LOG("=");
@@ -90,7 +90,8 @@ void setupReciever()
   radio.openReadingPipe(1,address[0]);              // Broadcast.
   LOG("\tReading ");  
   LOG((const char*)address[0]);
-   
+  
+  LOG("\tStart listening and send Ack Payload. ");
   radio.startListening();
   radio.writeAckPayload( 1, &message_count, sizeof(message_count) );  // Add an ack packet for the next time around.  This is a simple
   ++message_count;
@@ -121,26 +122,41 @@ void setRole(int role)
 
 
 void check_radio(void)                                // Receiver role: Does nothing!  All the work is in IRQ
-{
-  LOGLN("int" );
-  
+{ 
   bool tx,fail,rx;
   radio.whatHappened(tx,fail,rx);                     // What happened?
    
-  if ( tx ) {                                         // Have we successfully transmitted?
-      if ( gSettings.role == eSender ){   Serial.println(F("Send:OK")); }
-      if ( gSettings.role != eSender  ){ Serial.println(F("Ack Payload:Sent")); }
+  if ( tx ) 
+  {                                         // Have we successfully transmitted?
+      if( gSettings.role == eSender )
+	  {   
+		  LOGLN(F("Send:OK"));
+	  }
+      if ( gSettings.role >= eReceiver1)
+	  { 
+		  LOGLN(F("Ack Payload:Sent"));
+	  }
   }
   
-  if ( fail ) {                                       // Have we failed to transmit?
-      if ( gSettings.role == eSender ){   Serial.println(F("Send:Failed"));  }
-      if ( gSettings.role != eSender ){ Serial.println(F("Ack Payload:Failed"));  }
+  if ( fail ) 
+  {                                       // Have we failed to transmit?
+      if ( gSettings.role == eSender )
+	  {   
+		  LOGLN(F("Send:Failed"));
+	  }
+      if( gSettings.role >= eReceiver1)
+	  { 
+		  LOGLN(F("Ack Payload:Failed"));
+	  }
   }
  
   // If data is available, handle it accordingly
-  if ( rx ){
-    
-    if(radio.getDynamicPayloadSize() < 1){
+  if ( rx )
+  {    
+    if(radio.getDynamicPayloadSize() < 1)
+	{
+	   LOGLN("Corrupt payload has been flushed");
+
       // Corrupt payload has been flushed
       return; 
     }
@@ -150,13 +166,15 @@ void check_radio(void)                                // Receiver role: Does not
     LOG("data on pipe " );
     LOGLN(pipe);
 
-    if ( gSettings.role == eSender ) {                      // If we're the sender, we've received an ack payload
+    if ( gSettings.role == eSender ) 
+	{                      // If we're the sender, we've received an ack payload
         radio.read(&message_count,sizeof(message_count));
         Serial.print(F("Ack: "));
         Serial.println(message_count);
     }
     
-    if ( gSettings.role != eSender ) {                    // If we're the receiver, we've received a time message
+    if ( gSettings.role >= eReceiver1 ) 
+	{                    // If we're the receiver, we've received a time message
       static unsigned long got_time;                  // Get this payload and dump it
       radio.read( &got_time, sizeof(got_time) );
       Serial.print(F("Got payload "));
@@ -164,44 +182,7 @@ void check_radio(void)                                // Receiver role: Does not
       radio.writeAckPayload( pipe, &message_count, sizeof(message_count) );  // Add an ack packet for the next time around.  This is a simple
       ++message_count;                                // packet counter
     }
-  }
-        
-    // Read in the data
-    /*
-    uint32_t received;
-    radio.read(&received,sizeof(received));
-
-    byte cmd = received & 0xff; // byte is the cmd.
-    uint32_t data = received >> 8;
-    switch(cmd)
-    {
-      case ping:
-      {
-        radio.stopListening();
-        // Normal delay will not work here, so cycle through some no-operations (16nops @16mhz = 1us delay)
-        for(uint32_t i=0; i<130;i++){
-           __asm__("nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t");
-        }
-        radio.startWrite(&pong,sizeof(pong),0);
-        Serial.print("pong");
-        break;
-      }
-      case pong:
-      {
-        round_trip_timer = micros() - round_trip_timer;
-        Serial.print(F("Received Pong, Round Trip Time: "));
-        Serial.println(round_trip_timer);
-        break;
-      }
-    }
-  }
-
-  // Start listening if transmission is complete
-  if( tx || fail ){
-     radio.startListening(); 
-     Serial.println(tx ? F(":OK") : F(":Fail"));     
-  }  
-  */
+  }           
 }
  
 
