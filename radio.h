@@ -13,6 +13,12 @@ enum Pipe
   eIndividual,
 };
 
+enum RadioCommands
+{
+	eChangeHue,			// Tell other radios to change base hue.
+	eChangePattern,	
+};
+
 // Simple messages to represent a 'ping' and 'pong'
 static const uint32_t ping = 111;
 static const uint32_t pong = 222;
@@ -44,13 +50,20 @@ void doSender()
   //round_trip_timer = micros();
   //radio.startWrite( &ping, sizeof(ping),0 );
 
-  unsigned long time = millis();                   // Take the time, and send it.
-  LOG(F("Now sending "));
-  LOGLN(time);
-  radio.startWrite( &time, sizeof(unsigned long) ,0);
-  delay(2000);                                     // Try again soon
+  //unsigned long time = millis();                   // Take the time, and send it.
+  //LOG(F("Now sending "));
+  //LOGLN(time);
+  //radio.startWrite( &time, sizeof(unsigned long) ,0);
+  //delay(2000);                                     // Try again soon
 }
 
+void sendCmd(byte cmd, uint16_t param)
+{
+	uint32_t data = (uint32_t) cmd | (uint32_t) param << 8;	
+	LOG(F("Now sending "));	
+	LOGLN(data);
+	radio.startWrite( &data, sizeof(data) ,0);
+}
 
 void setupSender()
 { 
@@ -74,7 +87,7 @@ void setupSender()
   LOGLN(" done. ");
 
 #ifdef _DEBUG
-  radio.printDetails();                             // Dump the configuration of the rf unit for debugging
+ // radio.printDetails();                             // Dump the configuration of the rf unit for debugging
 #endif// _DEBUG    
 }
 
@@ -99,7 +112,7 @@ void setupReciever()
   LOGLN(", done.");
 
 #ifdef _DEBUG
-  radio.printDetails();                             // Dump the configuration of the rf unit for debugging
+  //radio.printDetails();                             // Dump the configuration of the rf unit for debugging
 #endif// _DEBUG    
 }
 
@@ -120,6 +133,9 @@ void setRole(int role)
     setupReciever();
  }
 
+void setHue(uint8_t hue);
+void nextPattern();
+void changePattern(int x);
 
 void check_radio(void)                                // Receiver role: Does nothing!  All the work is in IRQ
 { 
@@ -175,12 +191,35 @@ void check_radio(void)                                // Receiver role: Does not
     
     if ( gSettings.role >= eReceiver1 ) 
 	{                    // If we're the receiver, we've received a time message
-      static unsigned long got_time;                  // Get this payload and dump it
-      radio.read( &got_time, sizeof(got_time) );
-      Serial.print(F("Got payload "));
-      Serial.println(got_time);
-      radio.writeAckPayload( pipe, &message_count, sizeof(message_count) );  // Add an ack packet for the next time around.  This is a simple
-      ++message_count;                                // packet counter
+		uint32_t cmd;	
+		radio.read( &cmd, sizeof(cmd) );
+		Serial.print(F("Got payload "));
+		Serial.println(cmd);
+
+		uint16_t param = cmd >> 8;
+		cmd &= 0xff;
+
+		Serial.print(F("Got Cmd "));
+		Serial.println(cmd);
+
+		Serial.print(F("Got Param"));
+		Serial.println(param);
+		
+		// handle cmd.
+		switch (cmd)
+		{
+			case eChangePattern: 
+				Serial.println(F("Change Pattern"));
+				changePattern(param);
+				break;
+			case eChangeHue:
+				Serial.println(F("Set Hue"));
+				setHue(param);
+				break;
+		}
+
+		radio.writeAckPayload( pipe, &message_count, sizeof(message_count) );  // Add an ack packet for the next time around.  This is a simple
+		++message_count;                                // packet counter
     }
   }           
 }
