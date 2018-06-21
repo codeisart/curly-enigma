@@ -30,20 +30,24 @@ volatile uint32_t round_trip_timer = 0;
 
 const byte address[][6] = 
 { 
-  "bdcst",  // Broadcast address.                   0 (all clients are bound to this).
-  "suit1",  // Sender                               1
-  "suit2",  // Sender                               1
-  "suit3",  // Sender                               1
-  "suit4",  // Sender                               1
-  "suit5",  // Sender                               1
+  "bdcst",  // Broadcast address / Sender Suit1     0 (all clients are bound to this).
+  "suit2",  // Receiver								1
+  "suit3",  // Receiver								2
+  "suit4",  // Receiver								3
+  "suit5",  // Receiver								4
 };
+
+#ifdef _DEBUG
+	const char* power_levels[] = { "min", "high", "max" };
+#endif// _DEBUG
 
 void setRadioPower(int power)
 {
 	if (power == RF24_PA_LOW || power == RF24_PA_HIGH || power == RF24_PA_MAX)
 	{
+		LOGF("Setting radio power to [%s]\n", power_levels[power] );
 		radio.setPALevel(power);
-		gSettings.power = power;
+		gSettings.power = power;		
 	}
 }
 
@@ -96,7 +100,7 @@ void setupSender()
   LOGLN(" done. ");
 
 #ifdef _DEBUG
- // radio.printDetails();                             // Dump the configuration of the rf unit for debugging
+  //radio.printDetails();                             // Dump the configuration of the rf unit for debugging
 #endif// _DEBUG    
 }
 

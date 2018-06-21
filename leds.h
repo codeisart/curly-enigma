@@ -59,6 +59,7 @@ void doLeds()
 
 void setHue(uint8_t hue)
 {
+	// Disabled as this changes a lot.
 	// If we are the server.... send it out.
 	//if( gSettings.role == eSender )
 	//	sendCmd(eChangeHue, hue);
