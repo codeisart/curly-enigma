@@ -29,7 +29,12 @@ void handleInput()
       case 'r':
         software_Reset();
         break;
-        
+	  case 'P':				
+		  gSettings.power = RF24_PA_HIGH; 
+
+		  break;
+	  case 'p':					// change power of radio.
+		  gSettings.power = RF24_PA_LOW;  break;
       default: 
       {}       
      }

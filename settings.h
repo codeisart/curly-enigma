@@ -3,6 +3,7 @@
 #include "radio.h"
 #include <EEPROM.h>
 
+static const uint32_t kCurrentVer = 1;
 static const uint32_t kMagicVal = 'JIMMY';
 static const uint32_t EEPROM_settingsAddress= 0x123;  // Random place in the EEPROM to save our state, that's likely unused.
 
@@ -21,9 +22,13 @@ enum Mode {
 struct SettingsStruct {
   uint32_t magic;
   int role;
+  uint32_t ver;
+  int power;
+
   SettingsStruct()
     : magic(kMagicVal)
     , role(0)   
+	, power(RF24_PA_LOW)
   {}
 } gSettings;
 
@@ -46,21 +51,49 @@ const char* rolename[]
 
 void printSettings()
 {
-  LOG("role = " );    
+  LOG("role = ");
   LOGLN(rolename[gSettings.role]);
+  LOG("");
+  LOGLN("");
 }
 bool loadSettings()
 {
-  LOG(F("Reading from EEPROM... "));
+  LOG("Reading from EEPROM... ");
  
   // load settings.
-  EEPROM.get(EEPROM_settingsAddress, gSettings);
-  return gSettings.magic == kMagicVal;
+  SettingsStruct s;
+  EEPROM.get(EEPROM_settingsAddress, s);
+  if (s.magic == kMagicVal)
+  {
+	  LOG("Found settings version ");
+	  LOGLN(s.ver);
+	  	  
+	  // different version, migrate...
+	  if (gSettings.ver < kCurrentVer)
+	  {
+		  switch (gSettings.ver)
+		  {
+		  default:
+		  case 0: 
+			  LOG(F("Migrating settings..."));
+			  s.power = RF24_PA_LOW;
+			  break;
+		  }
+		  s.ver = kCurrentVer;
+	  }
+	  
+	  // all good.
+	  gSettings = s;
+	  return true;
+
+  }
+  return false;
 }
 void writeSettings()
 {
   LOG("Writing settings to EEPROM... ");
   gSettings.magic = kMagicVal;
+  gSettings.ver = kCurrentVer;
   EEPROM.put(EEPROM_settingsAddress,gSettings);
   LOGLN("done.");
 }

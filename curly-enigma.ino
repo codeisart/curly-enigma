@@ -36,6 +36,7 @@ void setup(){
     LOGLN("found some settings: ");
     printSettings();
     setRole(gSettings.role);    // this must be called after the radio has been started.
+	setRadioPower(gSettings.power);
   }
   else
   {
@@ -43,8 +44,6 @@ void setup(){
     LOGLN("Please define role: (0 (config), 1 (sender), 2 (receiver 1), 3 (reciever 2), 4 (receiver 3)");     
   }    
   
-  radio.setPALevel(RF24_PA_LOW);
- 
   radio.enableAckPayload();                         // We will be using the Ack Payload feature, so please enable it
   radio.enableDynamicPayloads();                    // Ack payloads are dynamic payloads  
  
@@ -55,10 +54,7 @@ void setup(){
   setupLeds();
 }
 
-
 /********************** Main Loop *********************/
-
-
 void loop() 
 {   
    handleInput();

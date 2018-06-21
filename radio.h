@@ -38,6 +38,15 @@ const byte address[][6] =
   "suit5",  // Sender                               1
 };
 
+void setRadioPower(int power)
+{
+	if (power == RF24_PA_LOW || power == RF24_PA_HIGH || power == RF24_PA_MAX)
+	{
+		radio.setPALevel(power);
+		gSettings.power = power;
+	}
+}
+
 void doSender()
 {  
   // Only allow 1 transmission per 45ms to prevent overlapping IRQ/reads/writes
