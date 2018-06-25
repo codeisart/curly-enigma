@@ -72,10 +72,10 @@ void loop()
     case eReceiver1:
     case eReceiver2:
     case eReceiver3:
-    case eReceiver4:
-    case eReceiver5:
-    case eReceiver6:
-    case eReceiver7:
+    //case eReceiver4:
+    //case eReceiver5:
+    //case eReceiver6:
+    //case eReceiver7:
       doReciever();
       break;
       

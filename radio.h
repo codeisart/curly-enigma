@@ -32,15 +32,32 @@ volatile uint32_t round_trip_timer = 0;
 const byte address[][6] = 
 { 
   "bdcst",  // Broadcast address / Sender Suit1     0 (all clients are bound to this).
-  "suit2",  // Receiver								1
-  "suit3",  // Receiver								2
-  "suit4",  // Receiver								3
-  "suit5",  // Receiver								4
+  "suit2",  // Receiver1							1
+  "suit3",  // Receiver2							2
+  "suit4",  // Receiver3							3
 };
 
 #ifdef _DEBUG
 	const char* power_levels[] = { "min", "high", "max" };
 #endif// _DEBUG
+
+const byte* role_to_address(int r)
+{
+	//eConfig,         //0 -> default to bdcst.
+	//eSender,         //1 -> bdcst
+	//eReceiver1,      //2 -> suit2
+	//eReceiver2,      //3 -> suit3
+	//eReceiver3,      //4 -> suit4
+	//eMaxReceiver
+	
+	if( r >= eSender && r < eMaxReceiver)
+	{
+		return address[r - 1];
+	}
+	
+	// default to bdcst.
+	return address[0];
+}
 
 void setRadioPower(int power)
 {
@@ -115,9 +132,9 @@ void setupReciever()
   LOG("Setting up receiver... ");  
   radio.stopListening();
   
-  radio.openWritingPipe(address[gSettings.role]);             
+  radio.openWritingPipe(role_to_address(gSettings.role));
   LOG("\tWriting");
-  LOG((const char*)address[gSettings.role]);  
+  LOG((const char*)role_to_address(gSettings.role));
   
   radio.setAutoAck(1, false);						// Turn off Ack on broadcast address.
   radio.openReadingPipe(1,address[0]);              // Broadcast.
@@ -159,7 +176,7 @@ void setRole(int role)
   // do setup.
   if( gSettings.role == eSender )
     setupSender();
-  else if( gSettings.role >= eReceiver1 && gSettings.role <= eReceiver7 )
+  else if( gSettings.role >= eReceiver1 && gSettings.role < eMaxReceiver )
     setupReciever();
  }
 

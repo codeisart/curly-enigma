@@ -13,10 +13,11 @@ enum Mode {
   eReceiver1,      //2
   eReceiver2,      //3
   eReceiver3,      //4
-  eReceiver4,      //5
-  eReceiver5,      //6
-  eReceiver6,      //7
-  eReceiver7,      //8  
+  eMaxReceiver
+  //eReceiver4,      //5
+  //eReceiver5,      //6
+  //eReceiver6,      //7
+  //eReceiver7,      //8  
 };
 
 struct SettingsStruct {
