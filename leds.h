@@ -82,8 +82,7 @@ void changePattern(int x)
 void nextPattern()
 {
 	uint8_t next = (gCurrentPatternNumber + 1) % ARRAY_SIZE(gPatterns);
-	LOG("nextPattern=");
-	LOGLN(next);
+	LOGF("nextPattern=%d\n", (int)next);
 
 	if (gSettings.role == eSender)
 		sendCmd(eChangePattern, next);

@@ -3,6 +3,8 @@
 #include "radio.h"
 #include <EEPROM.h>
 
+#define BUILDSTRING "Sausages"
+
 static const uint32_t kCurrentVer = 1;
 static const uint32_t kMagicVal = 'JIMMY';
 static const uint32_t EEPROM_settingsAddress= 0x123;  // Random place in the EEPROM to save our state, that's likely unused.
@@ -42,41 +44,36 @@ const char* rolename[]
   "Receiver1",      //2
   "Receiver2",      //3
   "Receiver3",      //4
-  "Receiver4",      //5
-  "Receiver5",      //6
-  "Receiver6",      //7
-  "Receiver7",      //8
 };
+
+const char* power_levels[] = { "min", "high", "max" };
+
 
 #endif// _DEBUG
 
 void printSettings()
 {
-  LOG("role = ");
-  LOGLN(rolename[gSettings.role]);
-  LOG("");
-  LOGLN("");
+	LOGF("%s, %d\n", rolename[gSettings.role], power_levels[gSettings.power]);
 }
 bool loadSettings()
 {
-  LOG("Reading from EEPROM... ");
+  //LOGF("Reading from EEPROM... ");
  
   // load settings.
   SettingsStruct s;
   EEPROM.get(EEPROM_settingsAddress, s);
   if (s.magic == kMagicVal)
   {
-	  LOG("Found settings version ");
-	  LOGLN(s.ver);
+	  //LOGF("Found settings version %d\n", s.ver);
 	  	  
 	  // different version, migrate...
 	  if (gSettings.ver < kCurrentVer)
 	  {
+		  //LOGF("Migrating settings...");
 		  switch (gSettings.ver)
 		  {
 		  default:
 		  case 0: 
-			  LOG(F("Migrating settings..."));
 			  s.power = RF24_PA_LOW;
 			  break;
 		  }
@@ -92,9 +89,9 @@ bool loadSettings()
 }
 void writeSettings()
 {
-  LOG("Writing settings to EEPROM... ");
+  //LOGF("Writing settings to EEPROM... ");
   gSettings.magic = kMagicVal;
   gSettings.ver = kCurrentVer;
   EEPROM.put(EEPROM_settingsAddress,gSettings);
-  LOGLN("done.");
+  LOGF("done\n");
 }

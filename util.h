@@ -13,8 +13,8 @@ void printf_local(char *fmt, ...)
 	Serial.print(buf);
 }
 
-  #define LOG(x) (Serial.print(x))
-  #define LOGLN(x) (Serial.println(x))
+  //#define LOG(x) //(Serial.print(x))
+  //#define LOGLN(x) //(Serial.println(x))
   #define LOGF(...) (printf_local(__VA_ARGS__))
 #else 
   #define LOG(x) 

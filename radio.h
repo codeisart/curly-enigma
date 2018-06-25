@@ -16,8 +16,8 @@ enum Pipe
 
 enum RadioCommands
 {
-	eChangeHue,			// Tell other radios to change base hue.
-	eChangePattern,	
+	eChangeHue		= 10,			// Tell other radios to change base hue.
+	eChangePattern  = 20,	
 };
 
 // Simple messages to represent a 'ping' and 'pong'
@@ -36,10 +36,6 @@ const byte address[][6] =
   "suit3",  // Receiver2							2
   "suit4",  // Receiver3							3
 };
-
-#ifdef _DEBUG
-	const char* power_levels[] = { "min", "high", "max" };
-#endif// _DEBUG
 
 const byte* role_to_address(int r)
 {
@@ -86,92 +82,97 @@ void doSender()
   //LOGLN(time);
   //radio.startWrite( &time, sizeof(unsigned long) ,0);
   //delay(2000);                                     // Try again soon
+
+	EVERY_N_SECONDS(5)
+	{
+		//radio.startListening();
+		//delay(10);
+		//radio.stopListening();
+		
+		static int TickCount = 0;
+		TickCount++;
+		LOGF("Tick %s %d\n", rolename[gSettings.role], TickCount);		
+	}
 }
 
 void sendCmd(byte cmd, uint16_t param, int addressIdx=0 )
 {
-	radio.openWritingPipe(address[addressIdx]);
+	//radio.openWritingPipe(address[addressIdx]);
 	
 	uint32_t data = (uint32_t) cmd | (uint32_t) param << 8;	
-	LOGF("Now sending cmd {%u} and param {%u} to address %s\n", cmd, param, address[addressIdx]);	
+	LOGF("C{%u} P{%u} A{%s}\n", cmd, param, address[addressIdx]);	
 	radio.stopListening();
 	radio.startWrite( &data, sizeof(data) ,0);		// Non-blocking write.
 }
 
 void setupSender()
 { 
-  LOG("Setting up Sender... ");  
+  LOGF("Sender... ");  
   radio.stopListening();
   
-  LOG("Writing");
-  LOG((char*)address[0]);
-  radio.openWritingPipe(address[0]);		// writing to broadcast address.
+  LOGF("+w A=[%s]", (char*)address[0]);
+  radio.openWritingPipe(address[0]);					// writing to broadcast address.
   
   for( int i = 1; i < ARRAY_SIZE(address); ++i )
   {
 	radio.writeAckPayload(i,&ping_count, sizeof(ping_count));			
 	radio.openReadingPipe(i,address[i]);								  // open reading pipes to all suits.
-    LOG("\tReading ");  
-    LOG(i);  
-    LOG("=");
-    LOG((const char*)address[i]);  
-    LOG("\t");    
+    LOGF("\t+r %d=A=%s", i, (const char*)address[i]);  
   }
-  LOGLN("");
-  LOGLN(" done. ");
-
-  
+  LOGF(" done.\n");
+ 
   
 #ifdef _DEBUG
-  //radio.printDetails();                             // Dump the configuration of the rf unit for debugging
+  radio.printDetails();                             // Dump the configuration of the rf unit for debugging
 #endif// _DEBUG    
 }
 
 void setupReciever()
 { 
-  LOG("Setting up receiver... ");  
+  LOGF("Rcrv...");  
   radio.stopListening();
   
-  radio.openWritingPipe(role_to_address(gSettings.role));
-  LOG("\tWriting");
-  LOG((const char*)role_to_address(gSettings.role));
-  
+  auto writeAddress = role_to_address(gSettings.role);
+  radio.openWritingPipe(writeAddress);
+    
   radio.setAutoAck(1, false);						// Turn off Ack on broadcast address.
   radio.openReadingPipe(1,address[0]);              // Broadcast.
-  LOG("\tReading ");  
-  LOG((const char*)address[0]);
-    
-  LOG("\tStart listening");
-  radio.startListening();
   
-  
+  LOGF("\t+w=%s, +r=%s. \n", (const char*)writeAddress, (const char*)address[0]);
+  radio.startListening();  
   
   ++ping_count;
-    
-  LOGLN(", done.");
 
 #ifdef _DEBUG
-  //radio.printDetails();                             // Dump the configuration of the rf unit for debugging
+  radio.printDetails();                             // Dump the configuration of the rf unit for debugging
 #endif// _DEBUG    
 }
 
 void doReciever()
-{ 
-	// Ping server to say we are alive.
+{ 	
 	EVERY_N_SECONDS(5) 
 	{ 
-		// WIP.
-		// Send ping to server every X
+		//// Ping server to say we are alive.
 		//radio.stopListening();
-		//radio.write
+		//auto writeAddress = role_to_address(gSettings.role);
+		//radio.openWritingPipe(writeAddress);
+		//radio.setAutoAck(1, false);
+		//unsigned long t = millis();
+		//radio.startWrite(&t, sizeof(t), false);
+
+		// Print tick log.
+		static int TickCount = 0;
+		TickCount++;
+		LOGF("Tick %s %d\n", rolename[gSettings.role], TickCount);
+
+		//radio.startListening();	//?
 	} 
 }
 
 void setRole(int role)
 {
-  LOG("Setting role to ");
   gSettings.role = role;  
-  LOGLN(rolename[gSettings.role]);
+  LOGF("Role=%d [%s]\n", gSettings.role, rolename[gSettings.role]);
 
   // do setup.
   if( gSettings.role == eSender )
@@ -188,16 +189,24 @@ void check_radio(void)                                // Receiver role: Does not
 { 
   bool tx,fail,rx;
   radio.whatHappened(tx,fail,rx);                     // What happened?
-   
+
+  //radio.stopListening();
+  
+  if (gSettings.role == eConfig)
+  {
+	  LOGF("CfgMode Wtf?\n");
+	  return;
+  }
+
   if ( tx ) 
   {                                         // Have we successfully transmitted?
       if( gSettings.role == eSender )
 	  {   
-		  LOGLN(F("Send:OK"));
+		  LOGF("Send:OK\n");
 	  }
       if ( gSettings.role >= eReceiver1)
 	  { 
-		  LOGLN(F("Ack Payload:Sent"));
+		  LOGF("Ack Payload:Sent\n");
 	  }
   }
   
@@ -205,64 +214,82 @@ void check_radio(void)                                // Receiver role: Does not
   {                                       // Have we failed to transmit?
       if ( gSettings.role == eSender )
 	  {   
-		  LOGLN(F("Send:Failed"));
+		  LOGF("Send:Failed\n");
 	  }
       if( gSettings.role >= eReceiver1)
 	  { 
-		  LOGLN(F("Ack Payload:Failed"));
+		  LOGF("Ack Payload:Failed\n");
 	  }
   }
  
   // If data is available, handle it accordingly
-  if ( rx )
-  {    
-    if(radio.getDynamicPayloadSize() < 1)
-	{
-	   LOGLN("Corrupt payload has been flushed");
+  if (rx)
+  {
+	  if (radio.getDynamicPayloadSize() < 1)
+	  {
+		  LOGF("Flushed\n");
 
-      // Corrupt payload has been flushed
-      return; 
-    }
+		  // Corrupt payload has been flushed
+		  return;
+	  }
 
-    byte pipe= 0xff;
-    bool avl = radio.available(&pipe);
-    LOGF("data on pipe %d\n", pipe );
+	  uint8_t pipe = 0xff;
+	  uint32_t len = radio.getDynamicPayloadSize();
+	  bool avl = radio.available(&pipe);
 
-    if ( gSettings.role == eSender ) 
-	{                      // If we're the sender, we've received an ack payload
-        radio.read(&ping_count,sizeof(ping_count));
-        LOGF("Got Ping from: %s, accking...\n", pipe >= 1 ? address[pipe-1] : "Unknown" );
-		radio.writeAckPayload( pipe, &ping_count, sizeof(ping_count) );  // This will be queued and sent out next time a packet is received on this pipe.		
-    }
-    
-    if ( gSettings.role >= eReceiver1 ) 
-	{                    // If we're the receiver, we've received a time message
-		uint32_t cmd;	
-		radio.read( &cmd, sizeof(cmd) );
+	  while (avl)
+	  {
+		  LOGF("%u bytes on %u\n", (int)len, (int)pipe );
 
-		uint16_t param = cmd >> 8;
-		cmd &= 0xff;
+		  if (gSettings.role == eSender)
+		  {
+			  // If we're the sender, we've received an ack payload	
+			  radio.read(&ping_count, sizeof(ping_count));
+			  LOGF("Ping: %s,\n", pipe >= 1 ? address[pipe - 1] : "Unknown");
+			  radio.writeAckPayload(pipe, &ping_count, sizeof(ping_count));  // This will be queued and sent out next time a packet is received on this pipe.		
+		  }
+		  else if (gSettings.role >= eReceiver1)
+		  {                    // If we're the receiver, we've received a time message						
+			  if (pipe == 1)	// Broadcast message? 
+			  {
+				  byte payload[32];
+				  radio.read(payload, len);
+				  uint32_t* cmd = (uint32_t*) payload;
 
-		LOGF("Received Cmd %u, %u\n", cmd, param);
-		
-		// handle cmd.
-		switch (cmd)
-		{
-			case eChangePattern: 
-				LOGF("Cmd -> Change Pattern to %u\n", param);
-				changePattern(param);
-				break;
-			case eChangeHue:
-				LOGF("Cmd -> Change HUE to %u\n", param);
-				setHue(param);
-				break;
-		}
+				  uint16_t param = *cmd >> 8;
+				  *cmd &= 0xff;
 
-		// We dont want to send Acks on the broadbast address as multiple listeners will stomp each other.
-		//radio.writeAckPayload( pipe, &ping_count, sizeof(ping_count) );  // Add an ack packet for the next time around.  This is a simple
-		++ping_count;                                // packet counter
-    }
-  }           
+				  LOGF("Got Cmd %u, %u\n", *cmd, param);
+
+				  // handle cmd.
+				  switch (*cmd)
+				  {
+				  default:
+					  LOGF("Unknwn cmd\n");
+					  break;
+				  case eChangePattern:
+					  LOGF("Cmd -> Pattern to %u\n", param);
+					  changePattern(param);
+					  break;
+				  case eChangeHue:
+					  LOGF("Cmd -> HUE to %u\n", param);
+					  setHue(param);
+					  break;
+				  }
+
+				  // We dont want to send Acks on the broadbast address as multiple listeners will stomp each other.
+				  //radio.writeAckPayload( pipe, &ping_count, sizeof(ping_count) );  // Add an ack packet for the next time around.  This is a simple
+				  ++ping_count;                                // packet counter
+			  }
+
+			  // See if any other data is available.
+			  avl = radio.available(&pipe);
+		  }
+	  }	  
+  }
+  
+  // Put us back in listen mode.
+  //radio.startListening();
 }
  
 
