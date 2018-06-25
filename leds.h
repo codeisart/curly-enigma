@@ -2,6 +2,7 @@
 
 #include "FastLED.h"
 #include "radio.h"
+#include "lib8tion.h"
 
 // suit is 5m, 32 leds per meter.
 #define NUM_LEDS 32*5
@@ -69,7 +70,7 @@ void setHue(uint8_t hue)
 
 void changePattern(int x)
 {
-	LOGLN("changePattern");	
+	LOGF("changePattern %d\n", x);	
 
 	if (gSettings.role == eSender)
 		sendCmd(eChangePattern, x);

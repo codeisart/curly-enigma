@@ -3,6 +3,7 @@
 #include "nRF24L01.h"
 #include "RF24.h"
 #include "settings.h"
+#include "FastLED.h"
 
 // Hardware configuration
 RF24 radio(7,8);                                      // Set up nRF24L01 radio on SPI bus plus pins 7 & 8
@@ -22,7 +23,7 @@ enum RadioCommands
 // Simple messages to represent a 'ping' and 'pong'
 static const uint32_t ping = 111;
 static const uint32_t pong = 222;
-static uint32_t message_count = 0;
+static uint32_t ping_count = 0;
 
 volatile uint32_t round_trip_timer = 0;
 
@@ -70,12 +71,14 @@ void doSender()
   //delay(2000);                                     // Try again soon
 }
 
-void sendCmd(byte cmd, uint16_t param)
+void sendCmd(byte cmd, uint16_t param, int addressIdx=0 )
 {
+	radio.openWritingPipe(address[addressIdx]);
+	
 	uint32_t data = (uint32_t) cmd | (uint32_t) param << 8;	
-	LOG(F("Now sending "));	
-	LOGLN(data);
-	radio.startWrite( &data, sizeof(data) ,0);
+	LOGF("Now sending cmd {%u} and param {%u} to address %s\n", cmd, param, address[addressIdx]);	
+	radio.stopListening();
+	radio.startWrite( &data, sizeof(data) ,0);		// Non-blocking write.
 }
 
 void setupSender()
@@ -89,7 +92,8 @@ void setupSender()
   
   for( int i = 1; i < ARRAY_SIZE(address); ++i )
   {
-    radio.openReadingPipe(1,address[i]);            // open reading pipes to all suits.
+	radio.writeAckPayload(i,&ping_count, sizeof(ping_count));			
+	radio.openReadingPipe(i,address[i]);								  // open reading pipes to all suits.
     LOG("\tReading ");  
     LOG(i);  
     LOG("=");
@@ -99,6 +103,8 @@ void setupSender()
   LOGLN("");
   LOGLN(" done. ");
 
+  
+  
 #ifdef _DEBUG
   //radio.printDetails();                             // Dump the configuration of the rf unit for debugging
 #endif// _DEBUG    
@@ -113,14 +119,17 @@ void setupReciever()
   LOG("\tWriting");
   LOG((const char*)address[gSettings.role]);  
   
+  radio.setAutoAck(1, false);						// Turn off Ack on broadcast address.
   radio.openReadingPipe(1,address[0]);              // Broadcast.
   LOG("\tReading ");  
   LOG((const char*)address[0]);
-  
-  LOG("\tStart listening and send Ack Payload. ");
+    
+  LOG("\tStart listening");
   radio.startListening();
-  radio.writeAckPayload( 1, &message_count, sizeof(message_count) );  // Add an ack packet for the next time around.  This is a simple
-  ++message_count;
+  
+  
+  
+  ++ping_count;
     
   LOGLN(", done.");
 
@@ -131,6 +140,14 @@ void setupReciever()
 
 void doReciever()
 { 
+	// Ping server to say we are alive.
+	EVERY_N_SECONDS(5) 
+	{ 
+		// WIP.
+		// Send ping to server every X
+		//radio.stopListening();
+		//radio.write
+	} 
 }
 
 void setRole(int role)
@@ -192,47 +209,41 @@ void check_radio(void)                                // Receiver role: Does not
 
     byte pipe= 0xff;
     bool avl = radio.available(&pipe);
-    LOG("data on pipe " );
-    LOGLN(pipe);
+    LOGF("data on pipe %d\n", pipe );
 
     if ( gSettings.role == eSender ) 
 	{                      // If we're the sender, we've received an ack payload
-        radio.read(&message_count,sizeof(message_count));
-        Serial.print(F("Ack: "));
-        Serial.println(message_count);
+        radio.read(&ping_count,sizeof(ping_count));
+        LOGF("Got Ping from: %s, accking...\n", pipe >= 1 ? address[pipe-1] : "Unknown" );
+		radio.writeAckPayload( pipe, &ping_count, sizeof(ping_count) );  // This will be queued and sent out next time a packet is received on this pipe.		
     }
     
     if ( gSettings.role >= eReceiver1 ) 
 	{                    // If we're the receiver, we've received a time message
 		uint32_t cmd;	
 		radio.read( &cmd, sizeof(cmd) );
-		Serial.print(F("Got payload "));
-		Serial.println(cmd);
 
 		uint16_t param = cmd >> 8;
 		cmd &= 0xff;
 
-		Serial.print(F("Got Cmd "));
-		Serial.println(cmd);
-
-		Serial.print(F("Got Param"));
-		Serial.println(param);
+		LOGF("Received Cmd %u, %u\n", cmd, param);
 		
 		// handle cmd.
 		switch (cmd)
 		{
 			case eChangePattern: 
-				Serial.println(F("Change Pattern"));
+				LOGF("Cmd -> Change Pattern to %u\n", param);
 				changePattern(param);
 				break;
 			case eChangeHue:
-				Serial.println(F("Set Hue"));
+				LOGF("Cmd -> Change HUE to %u\n", param);
 				setHue(param);
 				break;
 		}
 
-		radio.writeAckPayload( pipe, &message_count, sizeof(message_count) );  // Add an ack packet for the next time around.  This is a simple
-		++message_count;                                // packet counter
+		// We dont want to send Acks on the broadbast address as multiple listeners will stomp each other.
+		//radio.writeAckPayload( pipe, &ping_count, sizeof(ping_count) );  // Add an ack packet for the next time around.  This is a simple
+		++ping_count;                                // packet counter
     }
   }           
 }
