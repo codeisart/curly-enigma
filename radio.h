@@ -18,6 +18,7 @@ enum RadioCommands
 {
 	eChangeHue		= 10,			// Tell other radios to change base hue.
 	eChangePattern  = 20,	
+	eSyncPosition   = 30,
 };
 
 // Simple messages to represent a 'ping' and 'pong'
@@ -183,14 +184,14 @@ void setRole(int role)
 void setHue(uint8_t hue);
 void nextPattern();
 void changePattern(int x);
+void forcePosition(int x);
 
 void check_radio(void)                                // Receiver role: Does nothing!  All the work is in IRQ
 { 
   bool tx,fail,rx;
   radio.whatHappened(tx,fail,rx);                     // What happened?
 
-  //radio.stopListening();
-  
+  //radio.stopListening();  
   if (gSettings.role == eConfig)
   {
 	  LOGF("CfgMode Wtf?\n");
@@ -235,7 +236,7 @@ void check_radio(void)                                // Receiver role: Does not
 	  uint8_t pipe = 0xff;
 	  uint32_t len = radio.getDynamicPayloadSize();
 	  
-	  byte payload[32];
+	  byte payload[8];
 
 	  // See if any other data is available.
 	  for ( bool avl = radio.available(&pipe); avl; avl = radio.available(&pipe))
@@ -251,6 +252,19 @@ void check_radio(void)                                // Receiver role: Does not
 		  }
 		  else if (gSettings.role >= eReceiver1)
 		  {                    // If we're the receiver, we've received a time message						
+			  if (pipe == 0)
+			  {
+				  static int failures = 0;
+				  // Garbage. Chip is being funky, rety and recover.
+				  radio.powerDown();
+				  delay(10);
+				  radio.powerUp();
+				  if (failures++ > 10)
+					  software_Reset();	// reboot us, we're fucked.
+				  
+				  return;
+			  }
+			  
 			  if (pipe == 1)	// Broadcast message? 
 			  {
 				  radio.read(payload, len);
@@ -275,11 +289,19 @@ void check_radio(void)                                // Receiver role: Does not
 					  LOGF("Cmd -> HUE to %u\n", (int)param);
 					  setHue(param);
 					  break;
+				  case eSyncPosition:
+					  LOGF("Cmd -> Sync Pos %u\n", (int)param);
+					  forcePosition(param);
+					  break;
 				  }
 
 				  // We dont want to send Acks on the broadbast address as multiple listeners will stomp each other.
 				  //radio.writeAckPayload( pipe, &ping_count, sizeof(ping_count) );  // Add an ack packet for the next time around.  This is a simple
 				  ++ping_count;                                // packet counter
+			  }
+			  else
+			  {
+				  radio.read(payload, len);
 			  }
 		  }
 		  else

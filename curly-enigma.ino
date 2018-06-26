@@ -2,7 +2,7 @@
 #include <RF24.h>
 #include <printf.h>
 #include <nRF24L01.h>
-#define _DEBUG
+#define _DEBUGx
 
 #define DISABLE_SYNCx
 
@@ -66,6 +66,9 @@ void setup(){
 
   // Setup fast led.
   setupLeds();
+
+  Serial.print("setup complete, ");
+  Serial.println(gSettings.role );
 }
 
 /********************** Main Loop *********************/

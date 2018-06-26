@@ -10,7 +10,7 @@
 #define CLOCK_PIN 10
 #define BRIGHTNESS          64
 #define FRAMES_PER_SECOND  120
-#define PATTERN_TIME 10
+#define PATTERN_TIME 60*3
 
 
 // Define the array of leds
@@ -28,26 +28,32 @@ void bpm();
 void juggle();
 void cylon();
 
+int gForcePosition = -1;
+void forcePosition(int pos)
+{
+	gForcePosition = pos;
+}
 
 typedef void(*DrawFunct)();
 struct DrawStruct
 {
-	const char* name;;
+	const char* name;
+	uint16_t delayInMs;
 	DrawFunct funct;
-	DrawStruct(const char* n, DrawFunct f) 
-		: name(n), funct(f) 
+	DrawStruct(const char* n, DrawFunct f, int d=20) 
+		: name(n), funct(f), delayInMs(d)
 	{}
 };
 
-#define F(f) { DrawStruct{ #f, f } }
+#define F(f,d) { DrawStruct{ #f, f, d } }
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 DrawStruct gPatterns[] = 
 {
 	//F(rainbowWithGlitter), 
-	F(cylon),
-	F(confetti), 
-	F(bpm) 
+	F(cylon,20),
+	F(confetti,10), 
+	F(bpm,1000/120) 
 };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
@@ -63,12 +69,16 @@ void setupLeds()
 void doLeds()
 {
 	// Call the current pattern function once, updating the 'leds' array
-	gPatterns[gCurrentPatternNumber].funct();
+	static int thisdelay = 0;                                            // Standard delay
+	EVERY_N_MILLIS_I(thistimer, thisdelay) {								     // Sets the original delay time.
+		thistimer.setPeriod(gPatterns[gCurrentPatternNumber].delayInMs);              // This is how you update the delay value on the fly.
+		gPatterns[gCurrentPatternNumber].funct();
+	}	
 
 	// send the 'leds' array out to the actual LED strip
 	FastLED.show();
 	// insert a delay to keep the framerate modest
-	FastLED.delay(1000 / FRAMES_PER_SECOND);
+	//FastLED.delay(1000 / FRAMES_PER_SECOND);
 
 	EVERY_N_MILLISECONDS(20) { setHue(gHue + 1); } // slowly cycle the "base color" through the rainbow
 
@@ -77,7 +87,12 @@ void doLeds()
 	if (gSettings.role == eSender)
 #endif// DISABLE_SYNC
 	{
-		EVERY_N_SECONDS(1) { sendCmd(eChangeHue, gHue); }		// broadcast the hue to try and keep clients roughtly in sync.
+		// Sync ping, every second.
+		EVERY_N_SECONDS(1) 
+		{ 
+			sendCmd(eChangeHue, gHue);
+			sendCmd(eChangePattern, gCurrentPatternNumber);
+		}		// broadcast the hue to try and keep clients roughtly in sync.
 		EVERY_N_SECONDS(PATTERN_TIME) { nextPattern(); }		// change patterns periodically
 	}	
 }
@@ -135,8 +150,11 @@ void addGlitter(fract8 chanceOfGlitter)
 void rainbowWithGlitter()
 {
 	// built-in FastLED rainbow, plus some random sparkly glitter
-	rainbow();
-	addGlitter(80);
+	//EVERY_N_MILLISECONDS(20)
+	{
+		rainbow();
+		addGlitter(80);
+	}
 }
 
 void confetti()
@@ -150,26 +168,56 @@ void confetti()
 void bpm()
 {
 	// colored stripes pulsing at a defined Beats-Per-Minute (BPM)
-	uint8_t BeatsPerMinute = 62;
-	CRGBPalette16 palette = PartyColors_p;
-	uint8_t beat = beatsin8(BeatsPerMinute, 64, 255);
-	for (int i = 0; i < NUM_LEDS; i++) { //9948
-		leds[i] = ColorFromPalette(palette, gHue + (i * 2), beat - gHue + (i * 10));
+
+	//EVERY_N_MILLISECONDS(20)
+	{
+		uint8_t BeatsPerMinute = 62;
+		CRGBPalette16 palette = PartyColors_p;
+		uint8_t beat = beatsin8(BeatsPerMinute, 64, 255);
+		for (int i = 0; i < NUM_LEDS; i++) { //9948
+			leds[i] = ColorFromPalette(palette, gHue + (i * 2), beat - gHue + (i * 10));
+		}
 	}
 }
 
 void cylon()
 {
+
+	static const int nPoints = 1;
+	static int pixels[] = { 0, NUM_LEDS-1, NUM_LEDS/2, NUM_LEDS/3 };
+	static int dirs[] = { 1,-1,-2, 2 };
 	//EVERY_N_MILLISECONDS(20)
 	{
-		fadeToBlackBy(leds, NUM_LEDS, 40);
-		static int dir = 1;
-		static int pos = 0;
+		fadeToBlackBy(leds, NUM_LEDS, 20);
+		CRGBPalette16 palette = RainbowColors_p;
+		//static int dir = 1;
+		//static int pos = 0;
 
-		if (pos + dir >= NUM_LEDS || pos + dir < 0)
-			dir = -dir;
+		if (gForcePosition >= 0)
+		{
+			if (gForcePosition >= NUM_LEDS)
+				gForcePosition = NUM_LEDS - 1;
+			for (int i = 0; i < nPoints; ++i)
+				pixels[i] = gForcePosition;
+			
+			gForcePosition = -1;
+		}
 
-		pos += dir;
-		leds[pos] = CHSV(gHue++, 255, 255);
+		for (int i = 0; i < nPoints; ++i)
+		{
+			if (pixels[i] + dirs[i] >= NUM_LEDS || pixels[i] + dirs[i] < 0)
+			{
+				dirs[i] = -dirs[i];
+				if (gSettings.role == eSender)
+				{
+					sendCmd(eSyncPosition, pixels[i]);
+				}				
+			}
+
+			pixels[i] += dirs[i];
+			leds[pixels[i]] = ColorFromPalette(palette, gHue++, 255, 255);
+			//leds[pixels[i]] = CHSV(gHue*i, 255, 255);
+
+		}
 	}
 }
