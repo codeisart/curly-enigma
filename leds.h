@@ -10,6 +10,8 @@
 #define CLOCK_PIN 10
 #define BRIGHTNESS          64
 #define FRAMES_PER_SECOND  120
+#define PATTERN_TIME 10
+
 
 // Define the array of leds
 CRGB leds[NUM_LEDS];
@@ -24,6 +26,7 @@ void confetti();
 void sinelon();
 void bpm();
 void juggle();
+void cylon();
 
 
 typedef void(*DrawFunct)();
@@ -39,7 +42,13 @@ struct DrawStruct
 #define F(f) { DrawStruct{ #f, f } }
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
-DrawStruct gPatterns[] = { F(rainbow), F(rainbowWithGlitter), F(confetti), /*sinelon, juggle,*/ F(bpm) };
+DrawStruct gPatterns[] = 
+{
+	//F(rainbowWithGlitter), 
+	F(cylon),
+	F(confetti), 
+	F(bpm) 
+};
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -63,10 +72,13 @@ void doLeds()
 
 	EVERY_N_MILLISECONDS(20) { setHue(gHue + 1); } // slowly cycle the "base color" through the rainbow
 
-	// server only.
+	// server only, unless we are running with sync disabled.
+#ifndef DISABLE_SYNC
 	if (gSettings.role == eSender)
+#endif// DISABLE_SYNC
 	{
-		EVERY_N_SECONDS(10) { nextPattern(); } // change patterns periodically
+		EVERY_N_SECONDS(1) { sendCmd(eChangeHue, gHue); }		// broadcast the hue to try and keep clients roughtly in sync.
+		EVERY_N_SECONDS(PATTERN_TIME) { nextPattern(); }		// change patterns periodically
 	}	
 }
 
@@ -135,14 +147,6 @@ void confetti()
 	leds[pos] += CHSV(gHue + random8(64), 200, 255);
 }
 
-void sinelon()
-{
-	// a colored dot sweeping back and forth, with fading trails
-	fadeToBlackBy(leds, NUM_LEDS, 20);
-	int pos = beatsin16(13, 0, NUM_LEDS);
-	leds[pos] += CHSV(gHue, 255, 192);
-}
-
 void bpm()
 {
 	// colored stripes pulsing at a defined Beats-Per-Minute (BPM)
@@ -154,12 +158,18 @@ void bpm()
 	}
 }
 
-void juggle() {
-	// eight colored dots, weaving in and out of sync with each other
-	fadeToBlackBy(leds, NUM_LEDS, 20);
-	byte dothue = 0;
-	for (int i = 0; i < 8; i++) {
-		leds[beatsin16(i + 7, 0, NUM_LEDS)] |= CHSV(dothue, 200, 255);
-		dothue += 32;
+void cylon()
+{
+	//EVERY_N_MILLISECONDS(20)
+	{
+		fadeToBlackBy(leds, NUM_LEDS, 40);
+		static int dir = 1;
+		static int pos = 0;
+
+		if (pos + dir >= NUM_LEDS || pos + dir < 0)
+			dir = -dir;
+
+		pos += dir;
+		leds[pos] = CHSV(gHue++, 255, 255);
 	}
 }

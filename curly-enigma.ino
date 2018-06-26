@@ -4,6 +4,8 @@
 #include <nRF24L01.h>
 #define _DEBUG
 
+#define DISABLE_SYNCx
+
 #ifdef _DEBUG
   #include <SPI.h>
   #include "printf.h"
