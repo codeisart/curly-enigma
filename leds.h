@@ -25,9 +25,21 @@ void sinelon();
 void bpm();
 void juggle();
 
+
+typedef void(*DrawFunct)();
+struct DrawStruct
+{
+	const char* name;;
+	DrawFunct funct;
+	DrawStruct(const char* n, DrawFunct f) 
+		: name(n), funct(f) 
+	{}
+};
+
+#define F(f) { DrawStruct{ #f, f } }
+
 // List of patterns to cycle through.  Each is defined as a separate function below.
-typedef void(*SimplePatternList[])();
-SimplePatternList gPatterns = { /*rainbow, rainbowWithGlitter,*/ confetti, /*sinelon, juggle,*/ bpm };
+DrawStruct gPatterns[] = { F(rainbow), F(rainbowWithGlitter), F(confetti), /*sinelon, juggle,*/ F(bpm) };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -42,7 +54,7 @@ void setupLeds()
 void doLeds()
 {
 	// Call the current pattern function once, updating the 'leds' array
-	gPatterns[gCurrentPatternNumber]();
+	gPatterns[gCurrentPatternNumber].funct();
 
 	// send the 'leds' array out to the actual LED strip
 	FastLED.show();
@@ -72,17 +84,21 @@ void changePattern(int x)
 {
 	LOGF("changePattern %d\n", x);	
 
-	if (gSettings.role == eSender)
-		sendCmd(eChangePattern, x);
+	if (x < ARRAY_SIZE(gPatterns))
+	{
+		if (gSettings.role == eSender)
+			sendCmd(eChangePattern, x);
 
-	// add one to the current pattern number, and wrap around at the end
-	gCurrentPatternNumber = x;
+		// add one to the current pattern number, and wrap around at the end
+		gCurrentPatternNumber = x;
+		LOGF("pattern = %s\n", gPatterns[x].name);
+	}
 }
 
 void nextPattern()
 {
 	uint8_t next = (gCurrentPatternNumber + 1) % ARRAY_SIZE(gPatterns);
-	LOGF("nextPattern=%d\n", (int)next);
+	LOGF("nextpattern = %s\n", gPatterns[next].name );
 
 	if (gSettings.role == eSender)
 		sendCmd(eChangePattern, next);

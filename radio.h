@@ -97,8 +97,7 @@ void doSender()
 
 void sendCmd(byte cmd, uint16_t param, int addressIdx=0 )
 {
-	//radio.openWritingPipe(address[addressIdx]);
-	
+	radio.openWritingPipe(address[addressIdx]);	
 	uint32_t data = (uint32_t) cmd | (uint32_t) param << 8;	
 	LOGF("C{%u} P{%u} A{%s}\n", cmd, param, address[addressIdx]);	
 	radio.stopListening();
@@ -214,7 +213,7 @@ void check_radio(void)                                // Receiver role: Does not
   {                                       // Have we failed to transmit?
       if ( gSettings.role == eSender )
 	  {   
-		  LOGF("Send:Failed\n");
+		  //LOGF("Send:Failed\n");
 	  }
       if( gSettings.role >= eReceiver1)
 	  { 
@@ -235,9 +234,11 @@ void check_radio(void)                                // Receiver role: Does not
 
 	  uint8_t pipe = 0xff;
 	  uint32_t len = radio.getDynamicPayloadSize();
-	  bool avl = radio.available(&pipe);
+	  
+	  byte payload[32];
 
-	  while (avl)
+	  // See if any other data is available.
+	  for ( bool avl = radio.available(&pipe); avl; avl = radio.available(&pipe))
 	  {
 		  LOGF("%u bytes on %u\n", (int)len, (int)pipe );
 
@@ -252,14 +253,13 @@ void check_radio(void)                                // Receiver role: Does not
 		  {                    // If we're the receiver, we've received a time message						
 			  if (pipe == 1)	// Broadcast message? 
 			  {
-				  byte payload[32];
 				  radio.read(payload, len);
 				  uint32_t* cmd = (uint32_t*) payload;
 
 				  uint16_t param = *cmd >> 8;
 				  *cmd &= 0xff;
 
-				  LOGF("Got Cmd %u, %u\n", *cmd, param);
+				  LOGF("Got Cmd %u, %u\n", (int)*cmd, (int)param);
 
 				  // handle cmd.
 				  switch (*cmd)
@@ -268,11 +268,11 @@ void check_radio(void)                                // Receiver role: Does not
 					  LOGF("Unknwn cmd\n");
 					  break;
 				  case eChangePattern:
-					  LOGF("Cmd -> Pattern to %u\n", param);
+					  LOGF("Cmd -> Pattern to %u\n", (int)param);
 					  changePattern(param);
 					  break;
 				  case eChangeHue:
-					  LOGF("Cmd -> HUE to %u\n", param);
+					  LOGF("Cmd -> HUE to %u\n", (int)param);
 					  setHue(param);
 					  break;
 				  }
@@ -281,9 +281,10 @@ void check_radio(void)                                // Receiver role: Does not
 				  //radio.writeAckPayload( pipe, &ping_count, sizeof(ping_count) );  // Add an ack packet for the next time around.  This is a simple
 				  ++ping_count;                                // packet counter
 			  }
-
-			  // See if any other data is available.
-			  avl = radio.available(&pipe);
+		  }
+		  else
+		  {			 
+			  radio.read(payload, len);
 		  }
 	  }	  
   }
