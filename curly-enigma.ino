@@ -19,7 +19,7 @@
 /********************** Setup *********************/
 void setup(){
 
-  delay(1000);      
+  //delay(1000);      
 
   #ifdef _DEBUG    
 	printf_begin();
