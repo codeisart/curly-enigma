@@ -9,8 +9,7 @@
 #define DATA_PIN 9
 #define CLOCK_PIN 10
 #define BRIGHTNESS          64
-#define FRAMES_PER_SECOND  120
-#define PATTERN_TIME 60*3
+#define PATTERN_TIME 60*1
 
 
 // Define the array of leds
@@ -51,7 +50,7 @@ struct DrawStruct
 DrawStruct gPatterns[] = 
 {
 	//F(rainbowWithGlitter), 
-	F(cylon,20),
+	F(cylon,15),
 	F(confetti,10), 
 	F(bpm,1000/120) 
 };
@@ -93,7 +92,10 @@ void doLeds()
 			sendCmd(eChangeHue, gHue);
 			sendCmd(eChangePattern, gCurrentPatternNumber);
 		}		// broadcast the hue to try and keep clients roughtly in sync.
-		EVERY_N_SECONDS(PATTERN_TIME) { nextPattern(); }		// change patterns periodically
+		EVERY_N_SECONDS(PATTERN_TIME) 
+		{ 
+			nextPattern(); 
+		}		// change patterns periodically
 	}	
 }
 
@@ -193,29 +195,43 @@ void cylon()
 		//static int dir = 1;
 		//static int pos = 0;
 
+		static const int nSuits = 4;
+		static const int MaxStrip = NUM_LEDS * nSuits;
+		int ourRangeMin = (gSettings.role - 1) * NUM_LEDS;
+		int ourRangeMax = ourRangeMin + NUM_LEDS;
+
 		if (gForcePosition >= 0)
 		{
-			if (gForcePosition >= NUM_LEDS)
-				gForcePosition = NUM_LEDS - 1;
+			if (gForcePosition >= MaxStrip)
+				gForcePosition = MaxStrip - 1;
 			for (int i = 0; i < nPoints; ++i)
 				pixels[i] = gForcePosition;
-			
+
 			gForcePosition = -1;
 		}
-
+		
 		for (int i = 0; i < nPoints; ++i)
-		{
-			if (pixels[i] + dirs[i] >= NUM_LEDS || pixels[i] + dirs[i] < 0)
+		{			
+			if (pixels[i] + dirs[i] >= MaxStrip || pixels[i] + dirs[i] < 0)		// Bounce at suit extent.
 			{
 				dirs[i] = -dirs[i];
-				if (gSettings.role == eSender)
+
+				if (gSettings.role == eSender)				// broadcast position changes. (only really works with one pixel).
 				{
-					sendCmd(eSyncPosition, pixels[i]);
+					sendCmd(eSyncPosition, pixels[0]);
 				}				
 			}
 
 			pixels[i] += dirs[i];
-			leds[pixels[i]] = ColorFromPalette(palette, gHue++, 255, 255);
+			gHue++;					// Even if we're clipping, keep hue climbing at same rate.
+
+			// Map to our suit. (might clip, that's ok).
+			if (pixels[i] >= ourRangeMin && pixels[i] < ourRangeMax)
+			{
+				int ourPixel = pixels[i] - ourRangeMin;
+				leds[ourPixel] = ColorFromPalette(palette, gHue, 255, 255);
+			}						
+						
 			//leds[pixels[i]] = CHSV(gHue*i, 255, 255);
 
 		}

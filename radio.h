@@ -98,11 +98,13 @@ void doSender()
 
 void sendCmd(byte cmd, uint16_t param, int addressIdx=0 )
 {
+#ifndef DISABLE_SYNC
 	radio.openWritingPipe(address[addressIdx]);	
 	uint32_t data = (uint32_t) cmd | (uint32_t) param << 8;	
 	LOGF("C{%u} P{%u} A{%s}\n", cmd, param, address[addressIdx]);	
 	radio.stopListening();
 	radio.startWrite( &data, sizeof(data) ,0);		// Non-blocking write.
+#endif //DISABLE_SYNC
 }
 
 void setupSender()
