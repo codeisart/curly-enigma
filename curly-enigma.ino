@@ -2,9 +2,9 @@
 #include <RF24.h>
 #include <printf.h>
 #include <nRF24L01.h>
-#define _DEBUGx
+#define _DEBUG
 
-#define DISABLE_SYNCx
+#define DISABLE_SYNC
 
 #ifdef _DEBUG
   #include <SPI.h>
@@ -30,13 +30,15 @@ void setup(){
   Serial.begin(115200);      
   LOGF("[RESET]\n");
   //LOGF(BUILDSTRING "\n");
-  
+
+ #ifndef DISABLE_SYNC
   // Setup and configure rf radio
   radio.begin();       
   if( radio.isChipConnected() )
     LOGF("Radio connected on SPI Bus.\n");
   else
     LOGF("Radio not detected.\n");
+ #endif //DISABLE_SYNC    
 
   if( loadSettings())  
   {
@@ -57,6 +59,8 @@ void setup(){
 	LOGF("didn't find any settings, enterring config mode...\n");
     LOGF("Please define role: (0 (config), 1 (sender), 2 (receiver 1), 3 (reciever 2), 4 (receiver 3)\n");     
   }    
+ 
+ #ifndef DISABLE_SYNC
   
   radio.enableAckPayload();                         // We will be using the Ack Payload feature, so please enable it
   radio.enableDynamicPayloads();                    // Ack payloads are dynamic payloads  
@@ -64,6 +68,10 @@ void setup(){
   delay(50);
   attachInterrupt(0, check_radio, LOW);          // Attach interrupt handler to interrupt #0 (using pin 2) on BOTH the sender and receiver
 
+ #else // DISABLE_SYNC
+   Serial.print("radio and sync disabled. ");
+  #endif //DISABLE_SYNC
+  
   // Setup fast led.
   setupLeds();
 
@@ -76,6 +84,8 @@ void loop()
 {   
    handleInput();
    doLeds();				// Delays in here.
+
+#ifndef DISABLE_SYNC
    
    switch(gSettings.role)
    {
@@ -99,6 +109,8 @@ void loop()
     default:
       break;       
    }
+
+#endif //DISABLE_SYNC   
 }
   
 

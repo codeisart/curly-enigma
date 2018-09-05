@@ -5,8 +5,12 @@
 #include "settings.h"
 #include "FastLED.h"
 
+#ifndef DISABLE_SYNC
+
 // Hardware configuration
-RF24 radio(7,8);                                      // Set up nRF24L01 radio on SPI bus plus pins 7 & 8
+RF24 radio(7,8);    
+
+#endif //DISABLE_SYNC
 
 enum Pipe
 {
@@ -58,12 +62,16 @@ const byte* role_to_address(int r)
 
 void setRadioPower(int power)
 {
+#ifndef DISABLE_SYNC
+	
 	if (power == RF24_PA_LOW || power == RF24_PA_HIGH || power == RF24_PA_MAX)
 	{
 		LOGF("Setting radio power to [%s]\n", power_levels[power] );
 		radio.setPALevel(power);
 		gSettings.power = power;		
 	}
+
+#endif //DISABLE_SYNC
 }
 
 void doSender()
@@ -84,6 +92,8 @@ void doSender()
   //radio.startWrite( &time, sizeof(unsigned long) ,0);
   //delay(2000);                                     // Try again soon
 
+#ifndef DISABLE_SYNC
+
 	EVERY_N_SECONDS(5)
 	{
 		//radio.startListening();
@@ -94,6 +104,8 @@ void doSender()
 		TickCount++;
 		LOGF("Tick %s %d\n", rolename[gSettings.role], TickCount);		
 	}
+
+#endif //DISABLE_SYNC
 }
 
 void sendCmd(byte cmd, uint16_t param, int addressIdx=0 )
@@ -109,6 +121,8 @@ void sendCmd(byte cmd, uint16_t param, int addressIdx=0 )
 
 void setupSender()
 { 
+#ifndef DISABLE_SYNC  
+
   LOGF("Sender... ");  
   radio.stopListening();
   
@@ -122,15 +136,19 @@ void setupSender()
     LOGF("\t+r %d=A=%s", i, (const char*)address[i]);  
   }
   LOGF(" done.\n");
+
  
-  
 #ifdef _DEBUG
   radio.printDetails();                             // Dump the configuration of the rf unit for debugging
 #endif// _DEBUG    
+
+#endif //DISABLE_SYNC  
+ 
 }
 
 void setupReciever()
 { 
+#ifndef DISABLE_SYNC
   LOGF("Rcrv...");  
   radio.stopListening();
   
@@ -148,10 +166,14 @@ void setupReciever()
 #ifdef _DEBUG
   radio.printDetails();                             // Dump the configuration of the rf unit for debugging
 #endif// _DEBUG    
+
+#endif //DISABLE_SYNC
 }
 
 void doReciever()
 { 	
+#ifndef DISABLE_SYNC
+  
 	EVERY_N_SECONDS(5) 
 	{ 
 		//// Ping server to say we are alive.
@@ -169,6 +191,7 @@ void doReciever()
 
 		//radio.startListening();	//?
 	} 
+#endif //DISABLE_SYNC  
 }
 
 void setRole(int role)
@@ -190,6 +213,8 @@ void forcePosition(int x);
 
 void check_radio(void)                                // Receiver role: Does nothing!  All the work is in IRQ
 { 
+#ifndef DISABLE_SYNC
+
   bool tx,fail,rx;
   radio.whatHappened(tx,fail,rx);                     // What happened?
 
@@ -315,6 +340,7 @@ void check_radio(void)                                // Receiver role: Does not
   
   // Put us back in listen mode.
   //radio.startListening();
+#endif //DISABLE_SYNC  
 }
  
 

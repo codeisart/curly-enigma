@@ -79,7 +79,12 @@ bool loadSettings()
 		  }
 		  s.ver = kCurrentVer;
 	  }
-	  
+
+// if sync is disable, lets make everything the master so they all have clocks.
+#ifndef DISABLE_SYNC
+  gSettings.role = 1;
+#endif DISABLE_SYNC
+    
 	  // all good.
 	  gSettings = s;
 	  return true;

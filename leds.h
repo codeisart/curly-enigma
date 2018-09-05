@@ -195,10 +195,18 @@ void cylon()
 		//static int dir = 1;
 		//static int pos = 0;
 
-		static const int nSuits = 4;
-		static const int MaxStrip = NUM_LEDS * nSuits;
-		int ourRangeMin = (gSettings.role - 1) * NUM_LEDS;
-		int ourRangeMax = ourRangeMin + NUM_LEDS;
+
+
+#ifndef DISABLE_SYNC
+  static const int nSuits = 4;
+    static const int MaxStrip = NUM_LEDS * nSuits;
+    int ourRangeMin = (gSettings.role - 1) * NUM_LEDS;
+    int ourRangeMax = ourRangeMin + NUM_LEDS;
+#else 
+    static const int MaxStrip = NUM_LEDS;
+    static const int ourRangeMin = 0;
+    static const int ourRangeMax = NUM_LEDS;
+#endif //DISABLE_SYNC   
 
 		if (gForcePosition >= 0)
 		{
